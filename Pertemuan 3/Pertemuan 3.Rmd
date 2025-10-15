@@ -1,0 +1,129 @@
+---
+title: "mpdw pertemuan 3"
+author: "Arantxa Aulia"
+date: "2025-10-15"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(caret)
+
+data <- read.csv("C:/Users/arantxa/Downloads/NewDelhi_Air_quality.csv")
+data
+```
+
+```{r}
+str(data)
+summary(data)
+```
+
+
+```{r}
+# pilih variabel AQI sebagai Y dan PM2.5 sebagai X
+data2 <- data %>%
+  select(datetime, AQI, pm25) %>%
+  drop_na()
+
+# buat lag 1 hari pada PM2.5
+data2 <- data %>%
+  arrange(datetime) %>%
+  mutate(PM25_lag1 = lag(pm25, 1))
+
+# hapus baris NA akibat lag
+data2 <- na.omit(data2)
+data2
+```
+
+```{r}
+# model regresi
+model1 <- lm(AQI ~ pm25, data = data) 
+model2 <- lm(AQI ~ PM25_lag1, data = data2)
+summary(model1)
+summary(model2)
+```
+# Hasil Regresi Tanpa Lag (Model 1: AQI ~ PM2.5)
+Model 1: Regresi tanpa Lag (AQI ~ PM2.5)
+Persamaan regresi:
+AQI=29.88−1.61(PM2.5)
+
+Interpretasi hasil:
+Koefisien PM2.5 = -1.6129 artinya, setiap kenaikan 1 unit PM2.5 akan menurunkan nilai AQI sebesar 1.61 satuan, jika variabel lain dianggap konstan.
+Nilai p (0.00285) < 0.05, menunjukkan bahwa PM2.5 berpengaruh signifikan secara statistik terhadap AQI.
+Nilai R² = 0.1202 berarti sekitar 12% variasi AQI dapat dijelaskan oleh kadar PM2.5.
+Sisanya (~88%) dijelaskan oleh faktor lain di luar model.
+Residual standard error = 2.886, menandakan rata-rata kesalahan prediksi sekitar 2.9 poin AQI.
+
+Ada hubungan negatif dan signifikan antara PM2.5 dan AQI, meskipun kekuatan hubungannya tergolong lemah (R² rendah).
+
+# Hasil Regresi dengan Lag 1 Hari (Model 2: AQI ~ PM2.5_lag1)
+Persamaan regresi:
+AQI=30.31−1.83(PM2.5_lag1)
+
+Interpretasi hasil:
+Koefisien PM2.5_lag1 = -1.8276 artinya, setiap kenaikan 1 unit PM2.5 pada hari sebelumnya akan menurunkan AQI hari ini sebesar 1.83 satuan.
+Nilai p (0.00062) < 0.001, sehingga hubungan ini sangat signifikan secara statistik.
+Nilai R² = 0.1571, menunjukkan model dengan lag menjelaskan 15.7% variasi AQI, sedikit lebih baik dibanding model tanpa lag (12%).
+Residual standard error = 2.809, sedikit lebih kecil dibanding model pertama (2.886).
+
+Model dengan peubah lag memiliki penjelasan sedikit lebih kuat (R² lebih besar) dan error sedikit lebih kecil, sehingga sedikit lebih baik dalam memprediksi AQI dibanding model tanpa lag.
+
+```{r}
+# Prediksi dan hitung metrik akurasi
+pred1 <- predict(model1, data2)
+pred2 <- predict(model2, data2)
+
+mse1 <- mean((data2$AQI - pred1)^2)
+mse2 <- mean((data2$AQI - pred2)^2)
+
+rmse1 <- sqrt(mse1)
+rmse2 <- sqrt(mse2)
+
+r2_1 <- summary(model1)$r.squared
+r2_2 <- summary(model2)$r.squared
+```
+
+```{r}
+# hasil perbandingan
+cat("===========================================\n")
+cat("Perbandingan Kinerja Model\n")
+cat("===========================================\n")
+cat("Model 1 (Tanpa Lag):\n")
+cat("  RMSE =", rmse1, "\n")
+cat("  R-squared =", r2_1, "\n\n")
+
+cat("Model 2 (Dengan Lag 1 Hari):\n")
+cat("  RMSE =", rmse2, "\n")
+cat("  R-squared =", r2_2, "\n\n")
+
+if (rmse2 < rmse1) {
+  cat("Model dengan peubah lag memiliki kinerja lebih baik (RMSE lebih kecil)\n")
+} else {
+  cat("Model tanpa lag memiliki kinerja lebih baik\n")
+}
+cat("===========================================\n")
+```
+Interpretasi:
+
+Model tanpa lag memiliki nilai RMSE lebih kecil dan R² lebih besar, sehingga kinerjanya lebih baik dalam menjelaskan hubungan antara PM2.5 dan AQI.
+Efek lag 1 hari tidak meningkatkan kinerja model, menandakan bahwa perubahan AQI lebih dipengaruhi oleh kondisi PM2.5 pada hari yang sama, bukan oleh nilai PM2.5 hari sebelumnya.
+
+```{r}
+# visualisasi hubungan variabel
+library(ggplot2)
+ggplot(data2, aes(x = pm25,y=AQI)) +
+  geom_point(alpha = 0.5, color = "darkblue") +
+  geom_smooth(method = "lm", se = FALSE, color = "red") +
+  labs(title = "Hubungan AQI dengan PM2.5 di New Delhi",
+       x = "PM2.5 (µg/m³)",
+       y = "Air Quality Index (AQI)") +
+  theme_minimal()
+```
+
+Grafik menunjukkan tren negatif antara PM2.5 dan AQI: ketika kadar PM2.5 meningkat, AQI cenderung menurun. Garis regresi merah menguatkan hubungan linear negatif yang ditemukan dalam model 1.
+
+# Kesimpulan
+- Terdapat hubungan negatif dan signifikan antara konsentrasi PM2.5 dan indeks kualitas udara (AQI) di New Delhi.
+- Model regresi tanpa peubah lag memiliki performa terbaik (R² = 0.120169, RMSE = 2.638647).
+- Peubah lag tidak memperbaiki akurasi prediksi, sehingga model sederhana tanpa lag lebih disarankan untuk data ini.
+- Pola ini menunjukkan bahwa perubahan PM2.5 langsung berpengaruh terhadap kualitas udara pada hari yang sama.
